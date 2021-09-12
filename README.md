@@ -1,8 +1,3 @@
-The program's purpose is to delete duplicated photos based on content.
-
-It uses multicore to speed up the process.
-
-GUI is in progress.
-
-
-UPD: Rewrite with https://docs.python.org/3/library/filecmp.html
+The program's purpose is to delete duplicated files.
+GUI is in development.
+Next aim is to implement content-aware duplicate search (e.g. original imaged vs the same image from Instagram).

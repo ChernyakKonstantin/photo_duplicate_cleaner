@@ -1,40 +1,49 @@
+import threading
 import tkinter as tk
-from  tkinter import filedialog
-from tkinter.ttk import Progressbar, Frame, Button, Label
-
-
+from tkinter import filedialog
+from tkinter.ttk import Progressbar, Button, Label
+import datetime
+from backend import Backend
+# import multiprocessing
+import queue
 
 class Application():
 
     def __init__(self):
-        self.root = tk.Tk()
-        self.root.title('DelDupsV1')
-        self.root.geometry('250x100')
-        self.root.resizable(0, 0)
-        # self.mainframe = Frame(self.root)
-        # self.mainframe.grid(
-        #     column=0,
-        #     row=0,
-        #     sticky=(tk.N, tk.W, tk.E, tk.S),
-        # )
-        self.make_widgets()
-        self.run()
+        self._backend = Backend()
+        self._make_root()
+        self._make_widgets()
+        self._backend.connect_progress_bar(self._update_progress_bar)
+        self._backend.connect_on_delete_message(self._on_delete_message)
+        self._backend.connect_on_remain_time_estimate_message(self._on_remain_time_estimate_message)
+        self._run()
 
-    def run(self):
+    def _run(self):
         self.root.mainloop()
 
-    def make_buttons(self):
-        self.select_dir_btn = self.make_btn(
+    def _make_root(self):
+        self.root = tk.Tk()
+        self.root.title('DelDupsV1')
+        # self.root.geometry('250x100')
+        self.root.resizable(0, 0)
+
+    def _make_buttons(self):
+        self._select_dir_btn = self._make_btn(
             self.root,
             'Выбрать папку',
-            self.select_dir
+            self._select_dir
         )
-        self.launch_btn = self.make_btn(
+        self.launch_btn = self._make_btn(
             self.root,
             'Запустить',
-            self.progress_step
+            self._run_backend
         )
-        self.select_dir_btn.grid(
+        self.stop_btn = self._make_btn(
+            self.root,
+            'Остановить',
+            self._stop_backend
+        )
+        self._select_dir_btn.grid(
             row=0,
             column=0,
             rowspan=1,
@@ -52,40 +61,57 @@ class Application():
             padx=3,
             pady=3,
         )
+        self.stop_btn.grid(
+            row=0,
+            column=2,
+            rowspan=1,
+            columnspan=1,
+            sticky=(tk.N, tk.W, tk.E, tk.S),
+            padx=3,
+            pady=3,
+        )
 
-    def make_widgets(self):
-        self.make_buttons()
+    def _make_widgets(self):
+        self._make_buttons()
         self.progressbar = Progressbar(self.root)
         self.progressbar.grid(
             row=1,
             column=0,
             rowspan=1,
-            columnspan=2,
+            columnspan=3,
             sticky=(tk.N, tk.W, tk.E, tk.S),
             padx=3,
             pady=3,
         )
         self.info_label = Label(
             self.root,
-            text='Удалено дубликатов изображений: 0'
+            text=''
         )
         self.info_label.grid(
             row=2,
             column=0,
             rowspan=1,
-            columnspan=2,
+            columnspan=3,
             sticky=(tk.N, tk.W, tk.E, tk.S),
             padx=3,
             pady=3,
         )
 
-    def select_dir(self, event):
-        self.dir = filedialog.askdirectory()
+    def _select_dir(self, event):
+        self._backend.directory = filedialog.askdirectory()
 
-    def progress_step(self, event):
-        self.progressbar.step()
+    def _run_backend(self, event):
+        self._backend_thread = threading.Thread(target=self._backend.run, daemon=True)
+        self._backend_thread.start()
+        # self._backend_process = multiprocessing.Pool(1)
+        # self._backend_process.map(self._backend.run, [])
 
-    def make_btn(self, master, text, func):
+    def _stop_backend(self, event):
+        if self._backend_thread.is_alive:
+            self._backend_thread.terminate()
+        # self._backend_process.terminate()
+
+    def _make_btn(self, master, text, func):
         btn = Button(
             master=master,
             text=text,
@@ -96,8 +122,16 @@ class Application():
         )
         return btn
 
+    def _update_progress_bar(self, max_value):
+        self.progressbar['maximum'] = max_value
+        self.progressbar.step()
+
+    def _on_delete_message(self, value):
+        self.info_label['text'] = f'Удалено дубликатов: {value}'
+
+    def _on_remain_time_estimate_message(self, value):
+        self.info_label['text'] = f'Оставшееся время: {datetime.timedelta(seconds=round(value, 0))}.'
+
 
 if __name__ == '__main__':
-    a = Application()
-
-
+    application = Application()
